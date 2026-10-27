@@ -19,7 +19,12 @@ log "REGISTER: Registering/updating host $SERIAL with FOG..."
 
 ACTIVE_IFACE="$(cat /tmp/jos-active-iface 2>/dev/null || true)"
 if [[ -z "$ACTIVE_IFACE" ]]; then
-  ACTIVE_IFACE="$(ls /sys/class/net | grep -v '^lo$' | head -n1 || true)"
+  for nic in /sys/class/net/*; do
+    bn="$(basename "$nic")"
+    [[ "$bn" == lo ]] && continue
+    ACTIVE_IFACE="$bn"
+    break
+  done
 fi
 
 MAC_RAW="$(cat "/sys/class/net/${ACTIVE_IFACE}/address" 2>/dev/null || true)"
