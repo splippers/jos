@@ -145,7 +145,12 @@ entry() { # title extra-args
     # (Plugins > Capone) for the DMI value; the server side is not touched by this script.
     entry "5. Auto-deploy image by hardware inventory (Capone)" "mode=capone dmi=${JOS_CAPONE_DMI:-system-product-name}"
     entry "6. Debug Mode" "mode=onlydebug"
-    printf 'submenu "7. Advanced / Diagnostics" {\n'
+    # FOG menu actions that stock FOG draws in iPXE (not usable under Secure Boot); JOS asks on the console and
+    # calls the same server endpoints (build/jos-fogmenu.sh).
+    entry "7. Deploy Image (login, choose image)" "jos_fogmenu=deploy"
+    entry "8. Join Multicast Session" "jos_fogmenu=multijoin"
+    entry "9. Update Product Key" "jos_fogmenu=keyreg"
+    printf 'submenu "10. Advanced / Diagnostics" {\n'
     entry "Disk Surface Test (badblocks)" "mode=badblocks"
     entry "Test Disk (checkdisk)" "mode=checkdisk"
     entry "Recover Files (PhotoRec)" "mode=photorec"
@@ -156,9 +161,9 @@ entry() { # title extra-args
     entry "Enroll Secure Boot key (FOS kernel only; unneeded under JOS)" "mode=enrollsb"
     printf '}\n'
   fi
-  entry "8. JOS Debug (verbose, isdebug=yes)" "loglevel=7 isdebug=yes"
+  entry "11. JOS Debug (verbose, isdebug=yes)" "loglevel=7 isdebug=yes"
   if [[ -f "$TFTP/jos/memtest" ]]; then
-    printf 'menuentry "9. Memtest86+ (Needs Secure Boot off)" {\n    linux /jos/memtest\n}\n'
+    printf 'menuentry "12. Memtest86+ (Needs Secure Boot off)" {\n    linux /jos/memtest\n}\n'
   fi
 } >"$TFTP/grub/grub.cfg"
 log "staged into $TFTP: $(wc -w <<<"${want[*]}") modules ($(du -h "$TFTP/jos/modules.img" | cut -f1)), kernel ${KVER}"

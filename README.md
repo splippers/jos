@@ -14,6 +14,7 @@ Everything in this repo runs on, or builds for, the *client*. Nothing here insta
 |---|---|
 | `build/build-from-fos.sh` | Builds the initrd from the pinned FOS userland (`build/out/initrd.img`). |
 | `build/jos-localboot.sh` | "Boot from local disk" fallback: creates UEFI boot entries from local ESPs, then reboots. |
+| `build/jos-fogmenu.sh` | Console versions of the FOG menu actions that stock FOG draws in iPXE: Deploy Image (login, choose image), Join Multicast Session, Update Product Key. Calls the same `boot.php` endpoint. |
 | `scripts/jos-stage-boot.sh` | Stages shim, GRUB, signed kernel, initrd, modules and the GRUB menu into a TFTP root. Run as root on the server. |
 | `scripts/test-secureboot-vm.sh` | Boots the staged chain in a Secure Boot VM. |
 | `initrd/` | Retired shell client, kept for reference. |
