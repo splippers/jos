@@ -9,7 +9,7 @@ log "NET: Initialising network..."
 
 # Wait for NICs (USB-C docks, laptops).
 for _ in 1 2 3 4 5 6 7 8 9 10; do
-  IFACES="$(ls /sys/class/net 2>/dev/null || true)"
+  IFACES="$(ls /sys/class/net 2>/dev/null | grep -v '^lo$' || true)"
   [[ -n "$IFACES" ]] && break
   log "NET: Waiting for network interfaces..."
   sleep 1

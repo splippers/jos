@@ -24,6 +24,11 @@ mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
 
 # -----------------------------
+# Kernel modules (signed, from modules.img) — NIC/storage drivers
+# -----------------------------
+/scripts/jos-modules.sh || log "INIT: module load non-fatal — continuing"
+
+# -----------------------------
 # Networking
 # -----------------------------
 log "INIT: Bringing up networking..."

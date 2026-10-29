@@ -4,7 +4,7 @@ This is the working, measurable definition of “FOS replacement” for **JOS**.
 
 JOS is intentionally **not** a general-purpose distro. It is an initramfs-centric appliance that preserves the Secure Boot chain:
 
-`iPXE → shimx64.efi → GRUB → Canonical-signed kernel → JOS initramfs → /init → JOS runtime`
+`firmware PXE → shimx64.efi → grubnetx64 (as grubx64.efi) → Canonical-signed kernel → JOS initramfs → /init → JOS runtime`
 
 Only the **initramfs** changes.
 

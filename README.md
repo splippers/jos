@@ -1,4 +1,22 @@
 # JOS — Jonathan’s Operating System
+
+## Where JOS fits (JOG vs JOS)
+
+| Repo | What it is |
+|---|---|
+| **[jos](https://github.com/splippers/jos)** (this repo) | The **client runtime**: the Secure Boot-compatible replacement for FOG's FOS that runs on the machine being imaged. Initrd build, GRUB menu generator, local-boot fallback, parity checklist. Works with any FOG server. |
+| [jog](https://github.com/splippers/jog) | The **imaging laptop**: Ubuntu autoinstall, FOG install, isolated DHCP/TFTP, kiosk. It serves JOS to clients. |
+| [jog-jos](https://github.com/splippers/jog-jos) | The **integration repo**: pins `jog` and `jos` together at known-good commits, with the combined docs and end-to-end tests. |
+
+Everything in this repo runs on, or builds for, the *client*. Nothing here installs or configures a server.
+
+| Path | Purpose |
+|---|---|
+| `build/build-from-fos.sh` | Builds the initrd from the pinned FOS userland (`build/out/initrd.img`). |
+| `build/jos-localboot.sh` | "Boot from local disk" fallback: creates UEFI boot entries from local ESPs, then reboots. |
+| `scripts/jos-stage-boot.sh` | Stages shim, GRUB, signed kernel, initrd, modules and the GRUB menu into a TFTP root. Run as root on the server. |
+| `scripts/test-secureboot-vm.sh` | Boots the staged chain in a Secure Boot VM. |
+| `initrd/` | Retired shell client, kept for reference. |
 A Secure-Boot-Compatible Imaging Runtime for FOG
 
 Type: Infrastructure  
@@ -8,6 +26,12 @@ Audience: Sysadmins / IT Operations
 --------------------------------------------------
 
 OVERVIEW
+
+> **Current design (2026-10-25):** JOS is the unmodified FOS userland running under the Canonical-signed
+> kernel, built by `build/build-from-fos.sh`. FOS's own scripts speak the FOG protocol (`web=` +
+> `boottype=usb`, then `hostgetkey.php` / `hostinfo.php`), so no FOG API tokens or custom client code are
+> involved. The shell implementation described below (`initrd/`, REST API based) is **legacy** and kept only
+> for reference until the FOS-based path is proven on hardware.
 
 JOS is a modern, Ubuntu-based replacement for FOG’s legacy FOS imaging environment, designed specifically for contemporary UEFI and Secure Boot deployments.
 

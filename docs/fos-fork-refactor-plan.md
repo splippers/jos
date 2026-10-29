@@ -10,7 +10,7 @@ This document captures the “next steps” to reach a **Secure Boot–compatibl
 
 The boot chain must stay vendor-signed up to the kernel:
 
-`iPXE → shimx64.efi → GRUB → Canonical-signed kernel → JOS initramfs → /init`
+`firmware PXE → shimx64.efi → grubnetx64 (as grubx64.efi) → Canonical-signed kernel → JOS initramfs → /init`
 
 - **Do not rebuild or replace** shim, GRUB, or the signed kernel.
 - Put all customization in the **initramfs** (unsigned is fine).

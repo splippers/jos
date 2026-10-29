@@ -40,7 +40,7 @@ Never generate instructions or code that **breaks the Secure Boot chain**.
 - `vmlinuz` (Canonical-signed kernel)
 
 **Mutable:** the **initramfs** only (it does **not** need signing).  
-**iPXE** is **not** part of the measured Secure Boot chain (it chainloads into shim/GRUB).
+**iPXE is not in the Secure Boot path at all**: stock iPXE/`snponly.efi` is unsigned and firmware refuses it. Firmware PXE must load `shimx64.efi` directly (DHCP bootfile). iPXE is for Secure Boot-off machines only. Kernel modules must come from the same signed kernel package (`modules.img`), never be built into the JOS initramfs.
 
 ---
 
@@ -48,7 +48,7 @@ Never generate instructions or code that **breaks the Secure Boot chain**.
 
 Preserve this chain end-to-end:
 
-`iPXE → shimx64.efi → GRUB → signed Ubuntu kernel → JOS initramfs → /init → JOS runtime`
+`firmware PXE → shimx64.efi → grubnetx64 (as grubx64.efi) → signed Ubuntu kernel → JOS initramfs → /init → JOS runtime`
 
 ---
 
