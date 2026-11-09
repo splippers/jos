@@ -64,6 +64,14 @@ case "$action" in
     login
     resp="$(call qihost=1 "username=$USER_" "password=$PASS_")"
     bad_login "$resp" && fail "Invalid login"
+    # A task may already be queued for this host -- by the web UI, or by an
+    # earlier pass through this menu. boot.php then answers with the tasking
+    # (type=down) instead of the image list, so there is nothing to pick.
+    # That is a success: fall through to S99fog, which runs the queued task.
+    if queued "$resp"; then
+      say "A deploy task is already queued for this host; starting imaging"
+      exit 0
+    fi
     mapfile -t items < <(grep -E '^item ' <<<"$resp" | grep -v '^item return')
     ((${#items[@]})) || fail "$(messages "$resp" | head -3)${resp:+ (no images offered)}"
     echo; echo "Images:"
