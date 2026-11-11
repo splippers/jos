@@ -5,7 +5,12 @@
 # Machines with no usable UEFI boot entry (fresh hardware, cleared NVRAM, image deployed without one) cannot
 # "fall back to disk": there is nothing in the firmware list to fall back to. So: find every EFI System Partition
 # on the local disks, create a UEFI boot entry for each bootloader found, put them first in BootOrder, reboot.
-case " $(cat /proc/cmdline) " in *" jos_localboot=1 "*) ;; *) exit 0 ;; esac
+# Normally selected by the GRUB menu entry that adds jos_localboot=1 to the
+# kernel command line. S96jos-taskcheck also calls it (with JOS_LOCALBOOT_FORCE=1)
+# when the default deploy entry finds no task for this host.
+if [[ "${JOS_LOCALBOOT_FORCE:-0}" != "1" ]]; then
+  case " $(cat /proc/cmdline) " in *" jos_localboot=1 "*) ;; *) exit 0 ;; esac
+fi
 
 exec >/dev/tty0 2>&1 </dev/tty0
 say() { echo "[jos-localboot] $*"; }

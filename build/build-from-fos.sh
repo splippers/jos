@@ -46,6 +46,10 @@ chmod 0755 "$W/root/jos-report-boot-facts.sh"
 # acts when GRUB passed jos_localboot=1 (see scripts/jog-stage-jos-boot.sh).
 cp "$HERE/jos-localboot.sh" "$W/root/etc/init.d/S98jos-localboot"
 chmod 0755 "$W/root/etc/init.d/S98jos-localboot"
+# Auto-imaging gate for the default deploy entry: image when the server has a
+# task, fall back to the local disk when it does not (see jos-taskcheck.sh).
+cp "$HERE/jos-taskcheck.sh" "$W/root/etc/init.d/S96jos-taskcheck"
+chmod 0755 "$W/root/etc/init.d/S96jos-taskcheck"
 # FOG menu actions that need a login or prompt (deploy image, join multicast, product key); same slot, gated on
 # jos_fogmenu=<action>. S97 so it runs after the network is up and before S99fog.
 cp "$HERE/jos-fogmenu.sh" "$W/root/etc/init.d/S97jos-fogmenu"
