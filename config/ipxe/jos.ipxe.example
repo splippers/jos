@@ -8,5 +8,5 @@
 
 isset ${fog-ip} || set fog-ip 10.0.0.5
 
-echo JOS: chaining to signed shim from ${fog-ip}
+echo JOS - Jonathan's OS: chaining to signed shim from ${fog-ip}
 chain http://${fog-ip}/shimx64.efi || shell

@@ -3,13 +3,24 @@ set -e
 exec 2>>/tmp/jos_error.log
 
 # udp-receiver wrapper with mandatory suicide clause:
-# every 10s inspect throughput; if parsed avg < 30MB/s for 3 consecutive checks → kill + reboot.
+# every 10s inspect throughput; if parsed avg < JOS_UDPCAST_MIN_MB_S (default 30MB/s)
+# for JOS_UDPCAST_STRIKES consecutive checks (default 3) -> kill + reboot.
 # Unknown/zero parsed speed before the stream starts does not count as a strike.
+#
+# Tunables (kernel command line or environment):
+#   JOS_UDPCAST_MIN_MB_S       minimum average throughput in MB/s (default 30)
+#   JOS_UDPCAST_STRIKES        consecutive weak checks before reboot (default 3)
+#   JOS_UDPCAST_GRACE_CHECKS   startup checks to ignore (default 6, ~60s)
+#
+# This is the legacy shell JOS path. The default FOS-based initrd uses FOS's
+# own udpcast receiver; these tunables do not affect that path.
 
 . /scripts/jos-common.sh
 
 UDP_RECEIVER="${UDP_RECEIVER:-/tools/udp-receiver}"
 LOG_FILE="${JOS_UDPCAST_LOG:-/tmp/udp-receiver.log}"
+MIN_MB_S="${JOS_UDPCAST_MIN_MB_S:-30}"
+STRIKES="${JOS_UDPCAST_STRIKES:-3}"
 
 if [[ ! -x "$UDP_RECEIVER" ]]; then
   UDP_RECEIVER="udp-receiver"
@@ -66,15 +77,15 @@ while kill -0 "$UDP_PID" 2>/dev/null; do
     continue
   fi
 
-  if [[ "$speed_int" -lt 30 ]]; then
+  if [[ "$speed_int" -lt "$MIN_MB_S" ]]; then
     weak=$((weak + 1))
-    err "UDPCast: weak link detected (avg ${speed}MB/s) strike ${weak}/3"
+    err "UDPCast: weak link detected (avg ${speed}MB/s < ${MIN_MB_S}MB/s) strike ${weak}/${STRIKES}"
   else
     weak=0
     log "UDPCast: healthy (avg ${speed}MB/s)"
   fi
 
-  if [[ "$weak" -ge 3 ]]; then
+  if [[ "$weak" -ge "$STRIKES" ]]; then
     err "UDPCast: suicide clause triggered; killing udp-receiver and rebooting"
     kill "$UDP_PID" 2>/dev/null || true
     sleep 1

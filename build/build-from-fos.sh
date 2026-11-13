@@ -54,11 +54,17 @@ chmod 0755 "$W/root/etc/init.d/S96jos-taskcheck"
 # jos_fogmenu=<action>. S97 so it runs after the network is up and before S99fog.
 cp "$HERE/jos-fogmenu.sh" "$W/root/etc/init.d/S97jos-fogmenu"
 chmod 0755 "$W/root/etc/init.d/S97jos-fogmenu"
+# JOS branding: the version and ASCII banner are printed by /init before the FOS
+# userland starts. Keep them out of the FOG scripts so FOS parity is unaffected.
+install -m 0644 "$HERE/../VERSION" "$W/root/etc/jos-version"
+install -m 0644 "$HERE/../branding/jos-logo.txt" "$W/root/etc/jos-logo.txt"
+install -m 0755 "$HERE/jos-banner.sh" "$W/root/jos-banner.sh"
 cat >"$W/root/init" <<'INIT'
 #!/bin/busybox sh
 /bin/busybox mount -t devtmpfs devtmpfs /dev
 /bin/busybox mount -t proc proc /proc
 /bin/busybox mount -t sysfs sysfs /sys
+/jos-banner.sh || true
 /jos-report-boot-facts.sh &
 exec /sbin/init
 INIT

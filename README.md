@@ -1,203 +1,127 @@
-# JOS — Jonathan’s Operating System
+# JOS — Jonathan's OS
 
-## Where JOS fits (JOG vs JOS)
+**A Secure Boot imaging runtime for FOG.**
 
-| Repo | What it is |
+JOS is the client side of the JOG appliance. It boots over PXE, runs the FOG imaging workflow, and
+then either images the machine or hands it back to the local disk. It is not a FOG fork: the default
+build runs the stock FOS userland under the Canonical-signed Ubuntu kernel, so Secure Boot works
+without enrolling a per-site key.
+
+```text
+firmware PXE → shimx64.efi → grubnetx64 → signed vmlinuz → JOS initrd → FOS userland → FOG task
+```
+
+## The three repos
+
+| Repo | Role | Runs on |
+|---|---|---|
+| **[jos](https://github.com/splippers/jos)** (this repo) | The client runtime: initrd build, GRUB menu, local-boot fallback, Secure Boot chain staging | the machine being imaged (client) |
+| [jog](https://github.com/splippers/jog) | The imaging laptop: Ubuntu autoinstall, FOG install, isolated DHCP/TFTP, kiosk, driver share, provisioning payload | the laptop (server) |
+| [jog-jos](https://github.com/splippers/jog-jos) | Integration: pins `jog` and `jos` at known-good commits, combined docs, end-to-end tests | n/a |
+
+Everything in this repo runs on, or builds for, the **client**. Nothing here installs or configures a
+server.
+
+## Why it exists
+
+- **Secure Boot without a site key.** The kernel is Canonical-signed; the matching signed modules ship
+  as a second initrd. Firmware does not need to trust a custom key.
+- **FOG-native.** The stock FOS scripts speak the FOG protocol (`web=` + `boottype=usb`, then
+  `hostgetkey.php` / `hostinfo.php`). No API tokens are embedded in the image.
+- **Predictable by default.** The default entry auto-joins a multicast session that is still waiting,
+  images when the server has a task for the host, and otherwise boots the local disk. A technician does
+  not have to rescue a machine from an empty task.
+- **One menu, same choices.** Deploy/capture, registration, inventory, debug, Capone, multicast join,
+  and the diagnostic tools are available without iPXE.
+
+## Quick start
+
+Build the initrd from the pinned FOS userland:
+
+```bash
+./build/build-from-fos.sh          # -> build/out/initrd.img
+```
+
+Stage the boot chain into a TFTP root (run as root on the JOG server):
+
+```bash
+sudo ./scripts/jos-stage-boot.sh   # -> /tftpboot/{grub,jos,ubuntu-signed}
+```
+
+Test the staged chain under Secure Boot:
+
+```bash
+sudo ./scripts/test-secureboot-vm.sh /tftpboot
+```
+
+The stage script reads the version from `VERSION` and renders the GRUB menu with `JOS | ...` labels.
+The initrd prints the same banner before the FOS userland starts.
+
+## Boot menu
+
+| Entry | What it does |
 |---|---|
-| **[jos](https://github.com/splippers/jos)** (this repo) | The **client runtime**: the Secure Boot-compatible replacement for FOG's FOS that runs on the machine being imaged. Initrd build, GRUB menu generator, local-boot fallback, parity checklist. Works with any FOG server. |
-| [jog](https://github.com/splippers/jog) | The **imaging laptop**: Ubuntu autoinstall, FOG install, isolated DHCP/TFTP, kiosk. It serves JOS to clients. |
-| [jog-jos](https://github.com/splippers/jog-jos) | The **integration repo**: pins `jog` and `jos` together at known-good commits, with the combined docs and end-to-end tests. |
+| `JOS \| 0. Boot from local disk` | Repairs/creates the local UEFI boot entry, then reboots into it |
+| `JOS \| 1. JOS Image Deploy/Capture` | Default: joins a waiting multicast session, images when the server has a task, otherwise local boot |
+| `JOS \| 2-6. Registration / inventory / Capone / debug` | The stock FOS `mode=` actions |
+| `JOS \| 7-9. Deploy / multicast join / product key` | Console versions of FOG's iPXE actions |
+| `JOS \| 10. Advanced / Diagnostics` | badblocks, checkdisk, PhotoRec, chntpw, wipe, key enrolment |
+| `JOS \| 11. JOS Debug` | Verbose logging (`loglevel=7 isdebug=yes`) |
+| `JOS \| 12. Memtest86+` | Unsigned; needs Secure Boot off |
 
-Everything in this repo runs on, or builds for, the *client*. Nothing here installs or configures a server.
+The default is entry 1 with a 5-second timeout. Set `JOS_GRUB_TIMEOUT=-1` to wait indefinitely.
+
+## Repository layout
 
 | Path | Purpose |
 |---|---|
-| `build/build-from-fos.sh` | Builds the initrd from the pinned FOS userland (`build/out/initrd.img`). |
-| `build/jos-localboot.sh` | "Boot from local disk" fallback: creates UEFI boot entries from local ESPs, then reboots. |
-| `build/jos-taskcheck.sh` | Gate for the default deploy entry: images when the server has a task for this host, otherwise hands over to the local-boot fallback instead of erroring on an empty task type. |
-| `build/jos-fogmenu.sh` | Console versions of the FOG menu actions that stock FOG draws in iPXE: Deploy Image (login, choose image), Join Multicast Session, Update Product Key. Calls the same `boot.php` endpoint. |
-| `scripts/jos-stage-boot.sh` | Stages shim, GRUB, signed kernel, initrd, modules and the GRUB menu into a TFTP root. Run as root on the server. |
-| `scripts/test-secureboot-vm.sh` | Boots the staged chain in a Secure Boot VM. |
-| `initrd/` | Retired shell client, kept for reference. |
-A Secure-Boot-Compatible Imaging Runtime for FOG
+| `build/build-from-fos.sh` | Builds the initrd from the pinned FOS userland (`build/out/initrd.img`) |
+| `build/jos-banner.sh` | The ASCII banner printed by `/init` inside the initrd |
+| `build/jos-branding.sh` | Prints the brand block from the repo (developer helper) |
+| `build/jos-localboot.sh` | Local-disk fallback: creates UEFI boot entries from local ESPs, then reboots |
+| `build/jos-taskcheck.sh` | Gate for the default entry: auto-join a waiting multicast session, image if a task exists, otherwise local boot |
+| `build/jos-fogmenu.sh` | Console versions of the FOG iPXE actions |
+| `scripts/jos-stage-boot.sh` | Stages shim, GRUB, signed kernel, initrd, modules, and the menu |
+| `scripts/test-secureboot-vm.sh` | Boots the staged chain in a Secure Boot VM |
+| `branding/jos-logo.txt` | ASCII logo (no font or Unicode dependency) |
+| `VERSION` | Date-based release, e.g. `2026.11` |
+| `initrd/` | Retired shell client, kept for reference |
 
-Type: Infrastructure  
-Intent: Pillar (credibility / real-world systems)  
-Audience: Sysadmins / IT Operations
+## Branding
 
---------------------------------------------------
+The name is **JOS**; the tagline is **Jonathan's OS**. The boot chain is ASCII-only: no Unicode box
+drawing, no custom fonts, no colour assumptions beyond the GRUB palette. See
+[`docs/branding.md`](docs/branding.md) for the logo, palette, voice, and usage rules.
 
-OVERVIEW
+```text
+     ###   #####   #####
+      #   #     #  #
+      #   #     #  #####
+#     #   #     #      #
+ #####    #####   #####
 
-> **Current design (2026-10-25):** JOS is the unmodified FOS userland running under the Canonical-signed
-> kernel, built by `build/build-from-fos.sh`. FOS's own scripts speak the FOG protocol (`web=` +
-> `boottype=usb`, then `hostgetkey.php` / `hostinfo.php`), so no FOG API tokens or custom client code are
-> involved. The shell implementation described below (`initrd/`, REST API based) is **legacy** and kept only
-> for reference until the FOS-based path is proven on hardware.
+  JOS - Jonathan's OS  2026.11
+  Secure Boot imaging runtime for FOG
+```
 
-JOS is a modern, Ubuntu-based replacement for FOG’s legacy FOS imaging environment, designed specifically for contemporary UEFI and Secure Boot deployments.
+## Documentation
 
-It provides a zero-touch, API-driven imaging runtime that integrates cleanly with existing FOG infrastructure while addressing long-standing pain points in PXE booting, automation, and operational safety.
+| Doc | Contents |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | Boot flow, initrd design, FOS parity |
+| [`docs/branding.md`](docs/branding.md) | Name, logo, palette, voice, versioning |
+| [`docs/fos-fog-parity-checklist.md`](docs/fos-fog-parity-checklist.md) | What JOS must keep from FOS |
+| [`docs/fos-fork-refactor-plan.md`](docs/fos-fork-refactor-plan.md) | Refactor history and open work |
+| [`jog-jos/docs/CORPORATE-PROVISIONING.md`](https://github.com/splippers/jog-jos/blob/main/docs/CORPORATE-PROVISIONING.md) | The post-imaging corporate pipeline |
+| [`jog-jos/docs/MULTICAST-100.md`](https://github.com/splippers/jog-jos/blob/main/docs/MULTICAST-100.md) | 100-client multicast imaging |
 
---------------------------------------------------
+## Status
 
-WHY JOS EXISTS
+Active development. The default path is the FOS-based initrd; the `initrd/` shell client is legacy
+and retained for reference. The boot chain is tested with `scripts/test-secureboot-vm.sh` before it is
+staged for hardware.
 
-FOG’s FOS environment remains functional, but struggles with:
+## License
 
-- Secure Boot requirements
-- Modern UEFI hardware
-- Version-fragile scripts
-- Accidental destructive operations by technicians
-
-JOS exists to solve these problems without replacing FOG itself.
-
---------------------------------------------------
-
-CORE PRINCIPLES
-
-- FOG-native: uses the FOG REST API rather than brittle screen-scraping
-- Zero-touch: no technician interaction required after PXE selection
-- Safe by default: destructive disk writes must be explicitly enabled
-- Modern boot chain: Ubuntu-based userspace compatible with Secure Boot
-- Operationally boring: predictable, auditable, repeatable behaviour
-
---------------------------------------------------
-
-KEY CAPABILITIES
-
-SECURE BOOT COMPATIBLE RUNTIME
-- Ubuntu-based initrd and userspace
-- Designed for modern UEFI systems
-- Coexists with existing PXE and iPXE flows
-
-DHCP NEXT-SERVER AUTO-DISCOVERY
-- Automatically discovers the FOG server via DHCP siaddr
-- Removes manual server selection
-- Reduces technician error and deployment friction
-
-REST-DRIVEN TASK EXECUTION
-- Registers and inventories hosts via the FOG API
-- Polls and executes deploy or capture tasks
-- Adapts automatically to FOG API version differences
-
-EXPLICIT DESTRUCTIVE-ACTION GATING
-- Disk writes are disabled by default
-- Imaging requires an explicit allow flag
-- Prevents accidental wipes and unsafe execution
-
---------------------------------------------------
-
-IMAGING MODES
-
-UNICAST IMAGING
-- FOS-style deployment workflow
-- Uses partclone and sfdisk
-- Explicitly gated destructive actions
-
-MULTICAST IMAGING
-- Automatic task creation and session joining
-- Built-in watchdog for stalled transfers
-- Safe reboot on repeated low-throughput detection
-
---------------------------------------------------
-
-TECHNICIAN WORKFLOW
-
-1. Power on target system
-2. Press F12
-3. Select Boot from IPv4
-4. Walk away
-
-JOS will:
-- Acquire DHCP configuration
-- Discover the FOG server automatically
-- Register or update the host
-- Upload inventory
-- Wait for a queued task
-- Execute imaging without further interaction
-
---------------------------------------------------
-
-REPOSITORY STRUCTURE
-
-build/     - build scripts for initrd and runtime tooling  
-initrd/    - runtime filesystem and boot logic  
-config/    - reference PXE and iPXE configuration fragments  
-docs/      - architecture, boot flow, and operational notes  
-
-Generated binaries are produced during build and are not committed.
-
---------------------------------------------------
-
-STATUS
-
-Active development.
-
-This project is functional, evolving, and intended for real-world deployment in controlled environments. Contributions, issues, and discussion are welcome.
-
-==================================================
-
-PROJECT TAGGING SYSTEM (APPLY TO ALL REPOSITORIES)
-
-Each repository should declare three tags near the top of its README.
-
-TAG AXIS 1: TYPE  
-What kind of thing the project fundamentally is.
-
-Allowed values:
-- Simulation
-- Infrastructure
-- Game
-- Tool
-- Meta-System
-- Learning
-- Satire
-- Experiment
-- Archive
-
-TAG AXIS 2: INTENT  
-Why this project exists from the creator’s perspective.
-
-Allowed values:
-- Engine (funds or enables other projects)
-- Pillar (credibility, seriousness, trust)
-- Playground (experimentation and fun)
-- Teaching Tool
-- Portfolio Signal
-- Legacy Idea
-
-TAG AXIS 3: AUDIENCE  
-Who the project is primarily for.
-
-Allowed values:
-- Self
-- Developers
-- Sysadmins
-- Learners
-- Founders
-- Households
-- Institutions
-- General Public
-
---------------------------------------------------
-
-EXAMPLE FAMILY GROUPINGS
-
-Infrastructure / Ops Family
-- JOS
-  Type: Infrastructure | Intent: Pillar | Audience: Sysadmins
-- PypeLyne
-  Type: Infrastructure | Intent: Support | Audience: Developers
-
-Simulation / Learning Family
-- VNA
-  Type: Simulation | Intent: Engine | Audience: Learners
-- CEO-Simulator
-  Type: Simulation | Intent: Legacy Idea | Audience: Founders
-
-Domestic Gamification Family
-- BoreDOOM
-  Type: Game | Intent: Engine | Audience: Households
-- ChoreWars
-  Type: Meta-System | Intent: Engine | Audience: General Public
+See [LICENSE](LICENSE). The FOS userland bundled into the initrd is GPL-3 code; the built image is
+gitignored and never committed.

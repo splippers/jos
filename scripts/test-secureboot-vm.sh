@@ -3,7 +3,14 @@ set -euo pipefail
 # Boot the staged chain in QEMU with Secure Boot enforcing (Microsoft keys) and check JOS (FOS or legacy userland) boots.
 # Also runs an unsigned-bootloader control, which must be rejected. Needs: qemu-system-x86_64 ovmf sbsigntool.
 # Usage: test-secureboot-vm.sh <tftp-root>      (stage it first with JOG_TFTP_ROOT=<dir> jos-stage-boot.sh)
-T="$(realpath "${1:?tftp root}")"; W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+#
+# Run as root (or a user with write access to /dev/kvm) for a KVM-accelerated
+# test. The temporary TFTP root adds console=ttyS0 so the initrd's /init output
+# is visible on the serial log; the staged production GRUB config is unchanged.
+SRC="$(realpath "${1:?tftp root}")"; W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+T="$W/tftp"; mkdir -p "$T"; cp -a "$SRC/." "$T/"
+sed -i 's/loglevel=4/loglevel=4 console=ttyS0,115200/g' "$T/grub/grub.cfg"
+BOOT_TIMEOUT="${JOS_SECUREBOOT_TIMEOUT:-300}"
 OVMF=/usr/share/OVMF
 run() { # bootfile logfile timeout
   cp "$OVMF/OVMF_VARS_4M.ms.fd" "$W/vars.fd"
@@ -15,7 +22,7 @@ run() { # bootfile logfile timeout
 }
 clean() { sed 's/\x1b\[[0-9;?=]*[a-zA-Z]//g' "$1" | tr -d '\r'; }
 rc=0
-run ubuntu-signed/shimx64.efi "$W/pos.log" 60
+run ubuntu-signed/shimx64.efi "$W/pos.log" "$BOOT_TIMEOUT"
 if clean "$W/pos.log" | grep -aqE 'INIT: Starting FOG task runner|Starting udevd'; then echo "PASS signed chain reached JOS /init under Secure Boot"; else echo "FAIL signed chain did not reach JOS"; rc=1; fi
 cp /usr/lib/grub/x86_64-efi/monolithic/grubnetx64.efi "$W/unsigned.efi" 2>/dev/null && ln -s "$W/unsigned.efi" "$T/unsigned.efi.test" 2>/dev/null || true
 run unsigned.efi.test "$W/neg.log" 25; rm -f "$T/unsigned.efi.test"
