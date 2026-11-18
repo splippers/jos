@@ -59,6 +59,11 @@ chmod 0755 "$W/root/etc/init.d/S97jos-fogmenu"
 install -m 0644 "$HERE/../VERSION" "$W/root/etc/jos-version"
 install -m 0644 "$HERE/../branding/jos-logo.txt" "$W/root/etc/jos-logo.txt"
 install -m 0755 "$HERE/jos-banner.sh" "$W/root/jos-banner.sh"
+# Multicast queue screen: overlay FOS's plain-text check-in wait with a
+# full-screen status TUI. The overlay keeps FOS's check-in semantics and
+# variables; the TUI only draws. Both are GPL-compatible shell code.
+install -m 0755 "$HERE/jos-mc-wait-tui.sh" "$W/root/usr/sbin/jos-mc-wait-tui"
+install -m 0755 "$HERE/jos-fog-checkin.sh" "$W/root/bin/fog.checkin"
 cat >"$W/root/init" <<'INIT'
 #!/bin/busybox sh
 /bin/busybox mount -t devtmpfs devtmpfs /dev
