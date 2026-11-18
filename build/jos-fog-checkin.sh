@@ -73,7 +73,7 @@ checkin() {
     local tty=/dev/tty0
     [[ -w "$tty" ]] || tty=/dev/console
 
-    if [[ $mc == yes ]]; then
+    if [[ ${mc,,} == yes ]]; then
         : >/tmp/jog-checkin-state
         JOG_TUI_TTY="$tty" \
         JOG_TUI_WAIT_STATE=/tmp/jog-checkin-state \

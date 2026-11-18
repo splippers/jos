@@ -35,34 +35,60 @@ declare -A S W
 
 enter_tui() { printf '\033[?1049h\033[?25l\033[2J'; }
 leave_tui() { printf '\033[?25h\033[?1049l'; }
-trap leave_tui EXIT INT TERM
+trap leave_tui EXIT
+trap 'exit 0' INT TERM
 
 at() { printf '\033[%s;%sH' "$1" "$2"; }
 
-BGF='\033[48;5;17m'
-CYAN='\033[38;5;51m'
-WHITE='\033[38;5;255m'
-GREY='\033[38;5;245m'
-GREEN='\033[38;5;46m'
-AMBER='\033[38;5;214m'
+# 16-colour SGR only: the kernel text console (tty0/fbcon) ignores the
+# 256-colour 38;5;n / 48;5;n forms, which would leave the screen default-white.
+# No "0;" inside a colour code, because SGR 0 also clears the panel background.
+BGF='\033[44m'      # blue panel background (navy on a black screen)
+CYAN='\033[1;36m'
+WHITE='\033[1;37m'
+GREY='\033[37m'
+GREEN='\033[1;32m'
+AMBER='\033[1;33m'
+RED='\033[1;31m'
 BOLD='\033[1m'
 RST='\033[0m'
 
 box() {
-    local row=$1 col=$2 w=$3 h=$4 title=$5 r
+    local row=$1 col=$2 w=$3 h=$4 title=$5 r rule
+    rule="+$(printf '%*s' $((w - 2)) '' | tr ' ' '-')+"
     for ((r = row; r < row + h; r++)); do
         at "$r" "$col"
         printf '%b%*s%b' "$BGF" "$w" '' "$RST"
     done
     at "$row" "$col"
-    printf '%b%s%b' "$BGF$CYAN" '+--' "$RST"
+    printf '%b%s%b' "$BGF$CYAN" "$rule" "$RST"
+    at "$((row + h - 1))" "$col"
+    printf '%b%s%b' "$BGF$CYAN" "$rule" "$RST"
+    for ((r = row + 1; r < row + h - 1; r++)); do
+        at "$r" "$col"
+        printf '%b%s%b' "$BGF$CYAN" '|' "$RST"
+        at "$r" "$((col + w - 1))"
+        printf '%b%s%b' "$BGF$CYAN" '|' "$RST"
+    done
     at "$row" "$((col + 4))"
     printf '%b%s%b' "$BGF$BOLD$WHITE" " ${title} " "$RST"
 }
 
 field() {
-    at "$1" "$2"
-    printf '%b%s: %b%s%b' "$BGF$GREY" "$3" "$WHITE" "$4" "$RST"
+    local row=$1 col=$2 label=$3 value=$4 width
+    if (( col >= 40 )); then
+        width=$((36 - ${#label} - 2))
+    else
+        width=$((76 - ${#label} - 2))
+    fi
+    (( width < 8 )) && width=8
+    # Only truncate plain text: colour-wrapped values contain escape bytes that
+    # would otherwise eat into the visible character budget.
+    if [[ "$value" != *$'\033'* ]]; then
+        value="${value:0:width}"
+    fi
+    at "$row" "$col"
+    printf '%b%s: %b%s%b' "$BGF$GREY" "$label" "$WHITE" "$value" "$RST"
 }
 
 status_colour() {
@@ -80,7 +106,7 @@ bar() {
     filled=$((pct * width / 100))
     for ((i = 0; i < filled; i++)); do out+='#'; done
     for ((i = filled; i < width; i++)); do out+='.'; done
-    printf '%b%s%b' "$CYAN" "$out" "$RST"
+    printf '%b%s%b' "$BGF$CYAN" "$out" "$RST"
 }
 
 fetch_status() {
@@ -134,8 +160,18 @@ paint() {
     field 9 3 'Image' "${S[host_image]:-unknown}"
     field 10 3 'Task' "${S[task]:-none}"
     IFS='|' read -r speed duplex rx tx <<<"$(local_link)"
+    local link
+    if [[ "$speed" == "-1" || "$speed" == "?" || -z "$speed" ]]; then
+        link="${RED}no carrier${RST}"
+    elif (( speed >= 1000 )); then
+        link="${GREEN}${speed} Mb/s${RST} ${duplex}"
+    elif (( speed >= 100 )); then
+        link="${AMBER}${speed} Mb/s${RST} ${duplex}"
+    else
+        link="${RED}${speed} Mb/s${RST} ${duplex}"
+    fi
     field 8 43 'Interface' "$IFACE"
-    field 9 43 'Link' "${speed} Mb/s  ${duplex}"
+    field 9 43 'Link' "$link"
     field 10 43 'RX/TX errors' "$rx / $tx"
 
     box 13 1 79 7 'QUEUE'
