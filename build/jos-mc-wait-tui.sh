@@ -34,7 +34,10 @@ fi
 declare -A S W
 
 enter_tui() { printf '\033[?1049h\033[?25l\033[2J'; }
-leave_tui() { printf '\033[?25h\033[?1049l'; }
+# The kernel VT has no alternate-screen buffer (mode 1049 is ignored on
+# tty0/fbcon), so clear and home explicitly to leave a clean page for
+# Partclone's own progress display.
+leave_tui() { printf '\033[?25h\033[?1049l\033[2J\033[H'; }
 trap leave_tui EXIT
 trap 'exit 0' INT TERM
 
