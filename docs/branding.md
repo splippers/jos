@@ -3,7 +3,7 @@
 **JOS** is the client runtime. **Jonathan's OS** is the tagline. The appliance is **JOG**.
 
 ```text
-JOG + JOS — Corporate reimaging, without the licence bill.
+JOG + JOS — Corporate reimaging, without per-device imaging fees.
 ```
 
 That line belongs to the product family (the `jog-jos` integration repo). Keep it out of the boot
