@@ -106,6 +106,41 @@ if [[ -f /tmp/hinfo.txt ]] && head -c 2 /tmp/hinfo.txt | grep -q '\['; then
   . /tmp/hinfo.txt
 fi
 
+# Report the detected BIOS storage mode to Haar. On a capture this flags the
+# image whose drivers are being saved; on a deploy it compares the target mode
+# with that flag and with the JOS modules actually staged in this initrd.
+# Advisory only: a bad mode must warn loudly, never block a recovery deploy.
+if [[ ! -f /tmp/jos-storage-mode.env ]]; then
+  /jos-storage-mode.sh >/dev/tty0 2>&1 || true
+fi
+# shellcheck disable=SC1091
+[[ -f /tmp/jos-storage-mode.env ]] && . /tmp/jos-storage-mode.env
+storage_mode="${JOS_STORAGE_MODE:-UNKNOWN}"
+storage_support="${JOS_STORAGE_SUPPORT:-unknown}"
+
+storage_call() {
+  local action="$1"
+  curl -s -m 15 -X POST \
+    --data-urlencode "action=$action" \
+    --data-urlencode "mac=$mac" \
+    --data-urlencode "mode=$storage_mode" \
+    --data-urlencode "support=$storage_support" \
+    --data-urlencode "type=${type:-}" \
+    --data-urlencode "imagename=${imagename:-}" \
+    --data-urlencode "imgid=${imgid:-}" \
+    "${web}service/jog-autojoin.php" -A '' 2>/dev/null
+}
+
+resp="$(storage_call storage_report)"
+case "$resp" in
+  "OK STORAGE "*) say "${resp#OK STORAGE }" ;;
+esac
+resp="$(storage_call storage_check)"
+case "$resp" in
+  WARN\ *) say "Storage mode warning: ${resp#WARN }" ;;
+  OK\ *) say "Storage mode: ${resp#OK }" ;;
+esac
+
 if [[ -n "$type" ]]; then
   say "Server has a $type task for this host; starting imaging"
   exit 0

@@ -72,8 +72,17 @@ if [ -d "$EFIVARS" ]; then
   [ -n "$sm_file" ] && SETUPMODE="$(bb dd if="$sm_file" bs=1 skip=4 count=1 2>/dev/null | bb od -An -tx1 | bb tr -d ' \n')"
 fi
 
+STORAGEMODE=""
+STORAGESUPPORT=""
+if [ -f /tmp/jos-storage-mode.env ]; then
+  # Written by /jos-storage-mode.sh from /init before this background job starts.
+  . /tmp/jos-storage-mode.env
+  STORAGEMODE="${JOS_STORAGE_MODE:-}"
+  STORAGESUPPORT="${JOS_STORAGE_SUPPORT:-}"
+fi
+
 bb wget -q -O /dev/null -T 10 \
-  --post-data="mac0=${MAC}&arch=${ARCH}&platform=${PLATFORM}&secureboot=${SECUREBOOT}&setupmode=${SETUPMODE}" \
+  --post-data="mac0=${MAC}&arch=${ARCH}&platform=${PLATFORM}&secureboot=${SECUREBOOT}&setupmode=${SETUPMODE}&storagemode=${STORAGEMODE}&storagesupport=${STORAGESUPPORT}" \
   "${WEB}service/ipxe/boot.php" 2>/tmp/jos_bootfacts_error.log
 
 exit 0

@@ -42,6 +42,10 @@ rm -rf "$W/root/lost+found"
 # (BusyBox init -> /etc/inittab -> rcS -> S99fog).
 cp "$HERE/jos-report-boot-facts.sh" "$W/root/jos-report-boot-facts.sh"
 chmod 0755 "$W/root/jos-report-boot-facts.sh"
+# BIOS storage mode: detect before the FOG userland so both the boot-facts
+# reporter and the task gate can include it (capture flags the image, deploy
+# checks the target against that flag and JOS module support).
+install -m 0755 "$HERE/jos-storage-mode.sh" "$W/root/jos-storage-mode.sh"
 # "Boot from local disk" fallback: runs after udev/modules (S10/S11) and before the FOG client (S99fog), and only
 # acts when GRUB passed jos_localboot=1 (see scripts/jog-stage-jos-boot.sh).
 cp "$HERE/jos-localboot.sh" "$W/root/etc/init.d/S98jos-localboot"
@@ -70,6 +74,7 @@ cat >"$W/root/init" <<'INIT'
 /bin/busybox mount -t proc proc /proc
 /bin/busybox mount -t sysfs sysfs /sys
 /jos-banner.sh || true
+/jos-storage-mode.sh || true
 /jos-report-boot-facts.sh &
 exec /sbin/init
 INIT
